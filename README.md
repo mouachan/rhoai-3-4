@@ -503,7 +503,177 @@ oc get modelregistries.modelregistry.opendatahub.io -n rhoai-model-registries
 
 ---
 
-## 10. Summary of Databases
+## 10. Shared Object Storage (MinIO)
+
+Deploy a standalone MinIO instance in a dedicated namespace for Model Registry artifact storage and other shared S3 needs.
+
+### 10.1 Namespace
+
+```bash
+oc create namespace minio
+```
+
+### 10.2 Credentials Secret
+
+```bash
+oc apply -f - <<'EOF'
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-credentials
+  namespace: minio
+type: Opaque
+stringData:
+  MINIO_ROOT_USER: minio-admin
+  MINIO_ROOT_PASSWORD: "<REPLACE_WITH_PASSWORD>"
+EOF
+```
+
+### 10.3 PVC
+
+```bash
+oc apply -f - <<'EOF'
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-data
+  namespace: minio
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+EOF
+```
+
+### 10.4 Deployment
+
+```bash
+oc apply -f - <<'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      containers:
+      - name: minio
+        image: quay.io/minio/minio:latest
+        command:
+        - minio
+        - server
+        - /data
+        - --console-address
+        - ":9001"
+        ports:
+        - containerPort: 9000
+          name: api
+        - containerPort: 9001
+          name: console
+        envFrom:
+        - secretRef:
+            name: minio-credentials
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /minio/health/ready
+            port: 9000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: minio-data
+EOF
+```
+
+### 10.5 Service & Route
+
+```bash
+oc apply -f - <<'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: minio
+spec:
+  selector:
+    app: minio
+  ports:
+  - name: api
+    port: 9000
+    targetPort: 9000
+  - name: console
+    port: 9001
+    targetPort: 9001
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: minio-console
+  namespace: minio
+spec:
+  to:
+    kind: Service
+    name: minio
+  port:
+    targetPort: console
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+EOF
+```
+
+### 10.6 Create Buckets
+
+```bash
+oc exec -n minio deployment/minio -- mc alias set local http://localhost:9000 minio-admin <PASSWORD>
+oc exec -n minio deployment/minio -- mc mb local/model-registry --ignore-existing
+```
+
+### 10.7 Model Registry Storage Configuration
+
+When registering a model in the RHOAI dashboard, use:
+
+| Field | Value |
+|-------|-------|
+| Endpoint | `http://minio.minio.svc.cluster.local:9000` |
+| Bucket | `model-registry` |
+| Region | `us-east-1` |
+| Path | `/models` (or your preferred path) |
+
+Access credentials are the `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD` from the secret.
+
+The MinIO console is available at: `https://minio-console-minio.<INGRESS_DOMAIN>`
+
+---
+
+## 11. Summary of Databases
 
 All databases share the same PostgreSQL instance (`maas-postgres` in `redhat-ods-applications`):
 
@@ -515,7 +685,7 @@ All databases share the same PostgreSQL instance (`maas-postgres` in `redhat-ods
 
 ---
 
-## 11. DSC Final Status
+## 12. DSC Final Status
 
 After all configurations, the DSC should show all components ready:
 
@@ -532,7 +702,7 @@ Key conditions to verify:
 
 ---
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 ### DSC stuck on NotReady
 - **MaaS:** Check that `maas-default-gateway`, `maas-db-config` secret, and Kuadrant CR all exist
