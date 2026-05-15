@@ -380,6 +380,59 @@ EOF
 
 > **Note on `backendStoreUriFrom` format:** Use flat structure with `name` and `key` at the same level. A nested `secretKeyRef` structure is rejected by the API.
 
+### 7.4 RBAC for Workloads (Service Accounts)
+
+MLflow RHOAI 3.4 uses Kubernetes RBAC with pseudo-resources in the `mlflow.kubeflow.org` API group. Workloads (pods, agents) that send traces or interact with the MLflow API need the `mlflow-operator-mlflow-integration` ClusterRole bound in their namespace.
+
+```bash
+oc create rolebinding mlflow-backend-integration \
+  --clusterrole=mlflow-operator-mlflow-integration \
+  --serviceaccount=<NAMESPACE>:default \
+  -n <NAMESPACE>
+```
+
+This grants `get`, `list`, `create`, `update` on MLflow pseudo-resources (`experiments`, `datasets`, `registeredmodels`) without requiring full `edit` or `admin` roles.
+
+> **Important:** Without this RoleBinding, OTLP trace exports will fail with `403 Forbidden`. The standard OpenShift `edit` role alone is NOT sufficient — MLflow checks permissions on its own pseudo-resources in `mlflow.kubeflow.org`, not on standard Kubernetes resources.
+
+### 7.5 Create Experiment
+
+MLflow experiments are not auto-created. Create the experiment before sending traces:
+
+```bash
+# From inside a pod in the namespace, or via curl:
+curl -sk \
+  -H "Authorization: Bearer $(oc whoami --show-token)" \
+  -H "X-Mlflow-Workspace: <NAMESPACE>" \
+  -H "Content-Type: application/json" \
+  -X POST \
+  "https://mlflow.redhat-ods-applications.svc.cluster.local:8443/api/2.0/mlflow/experiments/create" \
+  -d '{"name":"<EXPERIMENT_NAME>"}'
+```
+
+Or use the MLflow SDK:
+
+```python
+import mlflow
+mlflow.set_workspace("<NAMESPACE>")
+mlflow.set_experiment("<EXPERIMENT_NAME>")
+```
+
+### 7.6 OTLP Trace Configuration (for OpenTelemetry exporters)
+
+Workloads using the OpenTelemetry SDK to send traces to MLflow need:
+
+| Environment Variable | Value |
+|---------------------|-------|
+| `MLFLOW_TRACKING_URI` | `https://mlflow.redhat-ods-applications.svc.cluster.local:8443` |
+| `MLFLOW_EXPERIMENT_NAME` | Name of the experiment (must exist) |
+| `MLFLOW_RHOAI_WORKSPACE` | Namespace name (= MLflow workspace) |
+
+The OTLP exporter sends to `{MLFLOW_TRACKING_URI}/v1/traces` with:
+- **Auth:** ServiceAccount token from `/var/run/secrets/kubernetes.io/serviceaccount/token`
+- **TLS:** OpenShift service CA from `/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt`
+- **Headers:** `Authorization: Bearer <token>`, `X-Mlflow-Workspace: <namespace>`, `x-mlflow-experiment-id: <id>`
+
 ---
 
 ## 8. Observability Stack (Technology Preview)
