@@ -21,10 +21,18 @@ Install the following operators from OperatorHub before configuring RHOAI:
 | Operator | Version | Namespace | Purpose |
 |----------|---------|-----------|---------|
 | Red Hat OpenShift AI | 3.4.0 | redhat-ods-operator | Core RHOAI platform |
+| Red Hat OpenShift Serverless | 1.37.1 | openshift-serverless | KNative serving for KServe |
+| Red Hat OpenShift Service Mesh 3 | 3.3.3 | openshift-operators | Istio for KServe + MaaS Gateway |
 | Red Hat Connectivity Link | 1.3.3 | openshift-operators | Kuadrant + Authorino + Limitador for MaaS auth |
-| Tempo Operator | 0.20.0-3 | openshift-operators | Distributed tracing backend |
-| Red Hat build of OpenTelemetry | 0.144.0-3 | openshift-operators | Telemetry data collection |
-| Cluster Observability Operator | - | openshift-cluster-observability-operator | Prometheus, Alertmanager, Perses |
+| NVIDIA GPU Operator | 26.3.1 | nvidia-gpu-operator | GPU support for model serving |
+| Red Hat build of Kueue | 1.3.1 | openshift-kueue-operator | Job scheduling and resource quotas |
+| Job Set Operator | 1.0.0 | openshift-jobset-operator | Required for Training Jobs |
+| Red Hat build of Leader Worker Set | 1.0.0 | openshift-lws-operator | Distributed training |
+| Custom Metrics Autoscaler | 2.18.1-2 | openshift-keda | Autoscaling based on custom metrics |
+| cert-manager Operator | 1.19.0 | cert-manager-operator | TLS certificate management |
+| Tempo Operator | 0.20.0-3 | openshift-tempo-operator | Distributed tracing backend |
+| Red Hat build of OpenTelemetry | 0.144.0-3 | openshift-opentelemetry-operator | Telemetry data collection |
+| Cluster Observability Operator | 1.4.0 | openshift-cluster-observability-operator | Prometheus, Alertmanager, Perses |
 
 ---
 
