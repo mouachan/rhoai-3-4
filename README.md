@@ -6,11 +6,11 @@ Complete setup of Red Hat OpenShift AI 3.4 on a fresh OpenShift cluster with all
 
 | Property | Value |
 |----------|-------|
-| Cluster | sandbox5465 |
+| Cluster | <cluster-name> |
 | Region | eu-central-1 |
 | OCP Version | 4.20 |
 | RHOAI Version | 3.4.0 |
-| Ingress Domain | `apps.cluster-ksc6j.ksc6j.sandbox5465.opentlc.com` |
+| Ingress Domain | `apps.cluster-<cluster-id>.<cluster-id>.<cluster-name>.opentlc.com` |
 
 ---
 
